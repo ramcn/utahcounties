@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Utah Counties: Mercator projection</title>
+
+<script type="text/javascript" src="//d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://d3js.org/topojson.v3.min.js"></script>
+
+              
+<style type="text/css">
+	
+body {
+	margin: 0;
+	background-color: #48494B;
+	font-family: "proxima-nova", "Source Sans Pro", sans-serif;
+	}
+
+#container {
+	width: 800px;
+	margin-left: 30px;
+	margin-right: auto;
+	margin-top: 30px;
+	padding: 30px;
+	background-color: white;
+	box-shadow: 3px 3px 7px #222;
+	}
+		
+	h1 {
+	font-size: 24px;
+	margin: 0;
+	}
+
+	p {
+	font-size: 16px;
+	margin: 15px 0 10px 0;
+	}
+
+	a {
+	  color: #799DCB;
+	  text-decoration: none;
+	  transition: color .3s, background .3s, border .3s;
+	}
+	a:hover {
+	  color: #48494b;
+	  background: #e7e8e9;
+	}
+
+	svg {
+		background-color: white;
+		padding-left: 20px;
+	}
+		
+	#tooltip {
+		width: 150px;
+		height: auto;
+		padding: 5px;
+		background-color: #fff;
+		color: #000;
+		-webkit-border-radius: 5px;
+		-moz-border-radius: 5px;
+		border-radius: 5px;
+		-webkit-box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.4);
+		-moz-box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.4);
+		box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.4);
+		pointer-events: none;
+		position: absolute;
+	}
+			
+	#tooltip.hidden {
+		display: none;
+	}
+		
+	#tooltip p {
+	margin: 0;
+	font-size: 14px;
+	line-height: 18px;
+	}
+
+	path {
+  stroke: #666;
+  fill: none;
+  fill-opacity: 0.6;
+  stroke-width: 1px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  }
+</style>
+</head>   
+<body>
+<div id="option">
+    <input name="doneButton" 
+           type="button" 
+           value="Done" 
+           onclick="Done()" />
+</div>
+
+<div id="option">
+    <input name="ClearButton" 
+           type="button" 
+           value="Clear" 
+           onclick="clearData()" />
+</div>
+
+	<script type="text/javascript">
+
+	//Width and height
+	var width = 600;
+	var height = 600;
+
+	//Define map projection
+var projection = d3.geoMercator()
+    .center([-110, 40 ])
+    .scale(5000)
+
+
+	//Create SVG
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+var path = d3.geoPath()
+    .projection(projection);
+
+
+var g = svg.append("g")
+
+var unemployment = d3.map();
+
+d3.queue()
+    .defer(d3.json, "topo.json")
+    .defer(d3.csv, "UT_asu_exampleDatav1.csv", function(d) { unemployment.set(d.id, +d.rate); })
+    .await(ready);
+
+var currentSum=0;
+var flag=0;
+
+
+var sampleText = svg.append("text")
+    .text("Total:"+currentSum+"%")
+    .attr("x", 50)
+    .attr("y", 50)
+
+
+var toggleColor = (function(){
+   var currentColor = "white";
+
+    return function(){
+        currentColor = currentColor == "white" ? "magenta" : "white";
+	d3.select(this).style("fill", currentColor);
+	console.log("flag",flag);
+	if(currentColor=="magenta") {
+		var ur = d3.select(this).text();
+		currentSum = currentSum + parseFloat(ur);
+		console.log("currentSum",currentSum);
+		sampleText.text("Total:"+currentSum+"%");
+		flag=0;
+	}
+	else {
+		if(flag){
+		  flag=0;
+		  var ur = d3.select(this).text();
+		  currentSum = currentSum - parseFloat(ur);
+		  console.log("currentSum",currentSum);
+		  sampleText.text("Total:"+currentSum+"%");
+		}
+		else flag=1;
+	}
+    }
+})();
+
+function ready(error, topology) {
+if (error) throw error;
+console.log("unemployment",unemployment)
+console.log(topology);
+var geojson = topojson.feature(topology, topology.objects.tl_2016_49_tract);
+console.log("geojson", geojson)
+
+//Bind data and create one path per GeoJSON feature
+svg.append("g")
+.attr("class", "tl_2016_49_tract")
+.selectAll("path")
+.data(geojson.features)
+.enter().append("path")
+.style("fill", function(d) { 
+	d.rate = unemployment.get(d.properties.GEOID);
+	if(d.rate > 6.5)
+		return "blue";
+	else
+		return "white";
+})
+.on("click", toggleColor)
+.attr("d", path)
+.append("title")
+.text(function(d) { return d.rate + "%"});
+}
+
+function Done() { 
+console.log("Done called");
+currentSum=0;
+sampleText.text("Total:"+currentSum+"%");
+}
+
+function clearData() { 
+console.log("clearData called");
+currentSum=0;
+svg.selectAll("path")
+.style("fill", function(d) { 
+	d.rate = unemployment.get(d.properties.GEOID);
+	if(d.rate > 6.5)
+		return "blue";
+	else
+		return "white";
+})
+console.log("clearData called");
+sampleText.text("Total:"+currentSum+"%");
+}
+
+
+</script>
+	
+</body>
+</html>
